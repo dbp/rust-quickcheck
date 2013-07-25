@@ -24,7 +24,7 @@ impl Arbitrary for int {
         let n : int = rand::random();
         n % num::pow_with_uint(2,10)
     }
-    
+
     fn size(&self) -> uint {
         self.clone().to_uint()
     }
@@ -46,7 +46,16 @@ impl<T:Arbitrary> Arbitrary for ~[T] {
     }
 }
 
-fn check<T:Arbitrary>(description : &str, f : extern fn(T) -> bool) {
+/**
+ * quick_check
+ *   description: a string describing what the property being tested is
+ *   f: function that takes arbitrary input and returns whether
+ *      the invariant held.
+ *
+ *   returns whether all the tests passed.
+ */
+fn quick_check<T:Arbitrary>(description : &str,
+                            f : extern fn(T) -> bool) -> bool {
     let num_tests = 100;
     let mut passing = 0;
     let mut failed = ~[];
@@ -59,7 +68,8 @@ fn check<T:Arbitrary>(description : &str, f : extern fn(T) -> bool) {
         }
     }
     if passing == num_tests {
-        println("+++ OK, passed 100 tests");
+        println(fmt!("+++ OK, passed 100 tests for %s", description));
+        return true;
     } else {
         println(fmt!("*** Failed '%s' on:", description));
         if failed.len() < 5 {
@@ -78,30 +88,28 @@ fn check<T:Arbitrary>(description : &str, f : extern fn(T) -> bool) {
             });
             let mut i = 0;
             for 5.times {
-                println(fmt!("%?", failed[i]));
+                println(fmt!("%?", failed_with_sizes[i].second()));
                 i += 1;
             }
             println("...and more");
         }
+        return false;
     }
 }
 
-fn main() {
+#[test]
+fn reverse_uint_vecs() {
     fn reverse<A:Clone>(v : ~[A]) -> ~[A] {
-        // fancy optimization!
-        if (v.len() == 2) {
-            v
-        } else {
-            let mut newvec = ~[];
-            for v.iter().advance |e| {
-                newvec.unshift(e.clone());
-            }
-            return newvec;
+        let mut newvec = ~[];
+        for v.iter().advance |e| {
+            // NOTE(dbp 2013-07-25): This is intentionally buggy.
+            newvec.push(e.clone());
         }
+        return newvec;
     }
-        
+
     fn prop_reverse_reverse_uints(v : ~[uint]) -> bool {
-        reverse(reverse(v.clone())) == v 
+        reverse(reverse(v.clone())) == v
     }
 
     fn prop_reverse_moves_first_to_last(v : ~[uint]) -> bool {
@@ -112,8 +120,10 @@ fn main() {
         }
     }
 
-    check("reversing a list twice yields the same list",
-          prop_reverse_reverse_uints);
-    check("reversing a list moves first element to last",
-          prop_reverse_moves_first_to_last);
+    assert!(
+        quick_check("reversing a list twice yields the same list",
+                    prop_reverse_reverse_uints));
+    assert!(
+        !quick_check("reversing a list moves first to last",
+                     prop_reverse_moves_first_to_last));
 }
