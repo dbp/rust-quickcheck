@@ -4,6 +4,12 @@ use std::vec;
 use std::num;
 use extra::sort;
 
+/**
+ * Arbitrary is a trait for types that you can generate arbitrary
+ * instances of. You should also be able to ask for their size, so
+ * you can report small failing examples instead of large ones.
+ *
+ */
 trait Arbitrary : Clone {
     fn gen() -> Self;
     fn size(&self) -> uint;
