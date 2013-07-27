@@ -103,6 +103,14 @@ fn quick_check<T:Arbitrary>(description : &str,
     }
 }
 
+/**
+ * quick_check2
+ *   description: a string describing what the property being tested is
+ *   f: function that takes two arbitrary inputs and returns whether
+ *      the invariant held.
+ *
+ *   returns whether all the tests passed.
+ */
 fn quick_check2<T:Arbitrary>(description : &str,
                              f : extern fn(T,T) -> bool) -> bool {
     let num_tests = 100;
@@ -154,7 +162,7 @@ fn reverse_uint_vecs() {
     fn reverse<A:Clone>(v : ~[A]) -> ~[A] {
         let mut newvec = ~[];
         for v.iter().advance |e| {
-            // NOTE(dbp 2013-07-25): This is intentionally buggy.
+            // NOTE(dbp 2013-07-25): This is intentionally buggy - should be unshift.
             newvec.push(e.clone());
         }
         return newvec;
@@ -195,7 +203,7 @@ fn struct_gen() {
         }
     }
     // NOTE(dbp 2013-07-27): Not sure why this isn't covered by `deriving`,
-    // is in a not-yet-implemented feature?
+    // is it a not-yet-implemented feature?
     impl Clone for Foo {
         fn clone(&self) -> Foo {
             Foo { n: self.n, xs: self.xs.clone() }
