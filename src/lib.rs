@@ -53,76 +53,70 @@ impl<T:Arbitrary> Arbitrary for ~[T] {
 }
 
 /**
- * quick_check
- *   description: a string describing what the property being tested is
- *   f: function that takes arbitrary input and returns whether
- *      the invariant held.
- *
- *   returns whether all the tests passed.
+ * Result is what is returned from property tests; it includes
+ * representations of the generated input in the case of failure.
  */
-fn quick_check<T:Arbitrary>(description : &str,
-                            f : extern fn(T) -> bool) -> bool {
-    let num_tests = 100;
-    let mut passing = 0;
-    let mut failed = ~[];
-    for num_tests.times {
-        let t : T = Arbitrary::gen();
-        if f(t.clone()) {
-            passing += 1;
-        } else {
-            failed.push(t);
-        }
-    }
-    if passing == num_tests {
-        println(fmt!("+++ OK, passed 100 tests for %s", description));
-        return true;
-    } else {
-        println(fmt!("*** Failed '%s' on:", description));
-        if failed.len() < 5 {
-            // is this really the best way? can't be...
-            let mut i = 0;
-            for failed.len().times {
-                println(fmt!("%?", failed[i]));
-                i += 1;
-            }
-        } else {
-            let mut failed_with_sizes : ~[(uint, T)] =
-                failed.iter().transform(|x| (x.size(), x.clone()))
-                .collect();
-            sort::quick_sort(failed_with_sizes, |e1, e2| {
-                e1.first() <= e2.first()
-            });
-            let mut i = 0;
-            for 5.times {
-                println(fmt!("%?", failed_with_sizes[i].second()));
-                i += 1;
-            }
-            println("...and more");
-        }
-        return false;
+#[deriving(Clone)]
+enum Result {
+    Pass,
+    Failure(uint, ~str)
+}
+
+fn result_str(r : ~Result) -> ~str {
+    match r {
+        ~Pass => ~"",
+        ~Failure(_, s) => s.clone()
     }
 }
 
 /**
- * quick_check2
+ * Testable is a trait for things that can be tested. This generally means
+ * functions that take arguments of trait Arbitrary.
+ */
+trait Testable {
+    fn apply(&self) -> ~Result;
+}
+
+impl<T:Arbitrary> Testable for extern fn(T) -> bool {
+    fn apply(&self) -> ~Result {
+        let t : T = Arbitrary::gen();
+        if (*self)(t.clone()) {
+            ~Pass
+        } else {
+            ~Failure(t.size(), fmt!("%?",t))
+        }
+    }
+}
+
+
+impl<T:Arbitrary, U:Arbitrary> Testable for extern fn(T,U) -> bool {
+    fn apply(&self) -> ~Result {
+        let t : T = Arbitrary::gen();
+        let u : U = Arbitrary::gen();
+        if (*self)(t.clone(), u.clone()) {
+            ~Pass
+        } else {
+            ~Failure(t.size() + u.size(), fmt!("%?, %?",t, u))
+        }
+    }
+}
+
+/**
+ * quick_check
  *   description: a string describing what the property being tested is
- *   f: function that takes two arbitrary inputs and returns whether
- *      the invariant held.
+ *   f: a Testable (ie, function taking arguments that are Arbitrary)
  *
  *   returns whether all the tests passed.
  */
-fn quick_check2<T:Arbitrary>(description : &str,
-                             f : extern fn(T,T) -> bool) -> bool {
+fn quick_check<F:Testable>(description : &str,
+                           f : F) -> bool {
     let num_tests = 100;
     let mut passing = 0;
     let mut failed = ~[];
     for num_tests.times {
-        let t1 : T = Arbitrary::gen();
-        let t2 : T = Arbitrary::gen();
-        if f(t1.clone(), t2.clone()) {
-            passing += 1;
-        } else {
-            failed.push((t1, t2));
+        match f.apply() {
+            ~Pass            => { passing += 1; }
+            ~Failure(s,args) => { failed.push(~Failure(s,args)); }
         }
     }
     if passing == num_tests {
@@ -134,20 +128,19 @@ fn quick_check2<T:Arbitrary>(description : &str,
             // is this really the best way? can't be...
             let mut i = 0;
             for failed.len().times {
-                println(fmt!("%?", failed[i]));
+                println(fmt!("%?", failed[i].clone()));
                 i += 1;
             }
         } else {
-            let mut failed_with_sizes : ~[(uint, (T,T))] =
-                failed.iter().transform(|x| (x.first().size() + x.second().size(),
-                                             x.clone()))
-                .collect();
-            sort::quick_sort(failed_with_sizes, |e1, e2| {
-                e1.first() <= e2.first()
+            sort::quick_sort(failed, |e1, e2| {
+                match (e1,e2) {
+                    (&~Failure(s1,_), &~Failure(s2,_)) => { s1 <= s2 }
+                    _ => { fail!() }
+                }
             });
             let mut i = 0;
             for 5.times {
-                println(fmt!("%?", failed_with_sizes[i].second()));
+                println(fmt!("%?", result_str(failed[i].clone())));
                 i += 1;
             }
             println("...and more");
@@ -155,7 +148,6 @@ fn quick_check2<T:Arbitrary>(description : &str,
         return false;
     }
 }
-
 
 #[test]
 fn reverse_uint_vecs() {
@@ -232,7 +224,7 @@ fn struct_gen() {
     }
 
     assert!(
-        !quick_check2("add_foos is commutative",
+        !quick_check("add_foos is commutative",
                     prop_add_foos_commutes));
 
     assert!(
