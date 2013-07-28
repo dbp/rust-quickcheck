@@ -24,7 +24,9 @@ use extra::sort;
  */
 pub trait Arbitrary : Clone {
     fn gen() -> Self;
-    fn size(&self) -> uint;
+    fn size(&self) -> uint {
+        0
+    }
 }
 
 impl Arbitrary for uint {

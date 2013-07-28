@@ -7,18 +7,34 @@ stages.
 
 Here's an example use:
 
+
     extern mod quickcheck;
 
     use quickcheck::*;
 
     fn main() {
-        fn foo(i: uint) -> bool {
+
+        #[deriving(Clone)] // NOTE(dbp 2013-07-28): not sure why this isn't working
+        struct Bar { i: int }
+
+        impl Clone for Bar {
+            fn clone(&self) -> Bar {
+                Bar { i: self.i }
+            }
+        }
+
+        impl Arbitrary for Bar {
+            fn gen() -> Bar {
+                Bar { i: Arbitrary::gen() }
+            }
+        }
+
+        fn foo(i: Bar) -> bool {
             true
         }
 
         quick_check("a useless test", foo);
     }
-
 
 ## Prior work
 
