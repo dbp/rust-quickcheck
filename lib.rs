@@ -1,4 +1,4 @@
-#[ link(name = "rust-quickcheck",
+#[ link(name = "quickcheck",
         vers = "0.1",
         uuid = "510d3dae-f7b1-11e2-83f1-bb59638dec3b") ];
 
