@@ -3,6 +3,23 @@
 This is an implementation of QuickCheck, in **very very** early
 stages.
 
+## Example
+
+Here's an example use:
+
+    extern mod quickcheck;
+
+    use quickcheck::*;
+
+    fn main() {
+        fn foo(i: uint) -> bool {
+            true
+        }
+
+        quick_check("a useless test", foo);
+    }
+
+
 ## Prior work
 
 There was a previous attempt at this at [1], but it doesn't really
