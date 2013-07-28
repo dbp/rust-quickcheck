@@ -1,3 +1,15 @@
+#[ link(name = "rust-quickcheck",
+        vers = "0.1",
+        uuid = "510d3dae-f7b1-11e2-83f1-bb59638dec3b") ];
+
+#[ desc = "Property based randomized testing library" ];
+#[ license = "ISC" ];
+#[ author = "Daniel Patterson" ];
+
+#[ crate_type = "lib" ];
+
+#[ warn(non_camel_case_types) ];
+
 extern mod extra;
 use std::rand;
 use std::vec;
@@ -10,7 +22,7 @@ use extra::sort;
  * you can report small failing examples instead of large ones.
  *
  */
-trait Arbitrary : Clone {
+pub trait Arbitrary : Clone {
     fn gen() -> Self;
     fn size(&self) -> uint;
 }
@@ -73,7 +85,7 @@ fn result_str(r : ~Result) -> ~str {
  * Testable is a trait for things that can be tested. This generally means
  * functions that take arguments of trait Arbitrary.
  */
-trait Testable {
+pub trait Testable {
     fn apply(&self) -> ~Result;
 }
 
@@ -108,8 +120,27 @@ impl<T:Arbitrary, U:Arbitrary> Testable for extern fn(T,U) -> bool {
  *
  *   returns whether all the tests passed.
  */
-fn quick_check<F:Testable>(description : &str,
-                           f : F) -> bool {
+pub fn quick_check<F:Testable>(description: &str, f: F) -> bool {
+    quick_check_internal(description, f, false)
+}
+
+/**
+ * quick_check_silent
+ *   description: a string describing what the property being tested is
+ *   f: a Testable (ie, function taking arguments that are Arbitrary)
+ *
+ *   returns whether all the tests passed.
+ *
+ * note: does not print out any output.
+ */
+pub fn quick_check_silent<F:Testable>(description: &str, f: F) -> bool {
+    quick_check_internal(description, f, true)
+}
+
+
+fn quick_check_internal<F:Testable>(description: &str,
+                                    f: F,
+                                    silent: bool) -> bool {
     let num_tests = 100;
     let mut passing = 0;
     let mut failed = ~[];
@@ -120,30 +151,34 @@ fn quick_check<F:Testable>(description : &str,
         }
     }
     if passing == num_tests {
-        println(fmt!("+++ OK, passed 100 tests for %s", description));
+        if !silent {
+            println(fmt!("+++ OK, passed 100 tests for %s", description));
+        }
         return true;
     } else {
-        println(fmt!("*** Failed '%s' on:", description));
-        if failed.len() < 5 {
-            // is this really the best way? can't be...
-            let mut i = 0;
-            for failed.len().times {
-                println(fmt!("%?", failed[i].clone()));
-                i += 1;
-            }
-        } else {
-            sort::quick_sort(failed, |e1, e2| {
-                match (e1,e2) {
-                    (&~Failure(s1,_), &~Failure(s2,_)) => { s1 <= s2 }
-                    _ => { fail!() }
+        if !silent {
+            println(fmt!("*** Failed '%s' on:", description));
+            if failed.len() < 5 {
+                // is this really the best way? can't be...
+                let mut i = 0;
+                for failed.len().times {
+                    println(fmt!("%?", failed[i].clone()));
+                    i += 1;
                 }
-            });
-            let mut i = 0;
-            for 5.times {
-                println(fmt!("%?", result_str(failed[i].clone())));
-                i += 1;
+            } else {
+                sort::quick_sort(failed, |e1, e2| {
+                    match (e1,e2) {
+                        (&~Failure(s1,_), &~Failure(s2,_)) => { s1 <= s2 }
+                        _ => { fail!() }
+                    }
+                });
+                let mut i = 0;
+                for 5.times {
+                    println(fmt!("%?", result_str(failed[i].clone())));
+                    i += 1;
+                }
+                println("...and more");
             }
-            println("...and more");
         }
         return false;
     }
@@ -173,11 +208,11 @@ fn reverse_uint_vecs() {
     }
 
     assert!(
-        quick_check("reversing a list twice yields the same list",
-                    prop_reverse_reverse_uints));
+        quick_check_silent("reversing a list twice yields the same list",
+                           prop_reverse_reverse_uints));
     assert!(
-        !quick_check("reversing a list moves first to last",
-                     prop_reverse_moves_first_to_last));
+        !quick_check_silent("reversing a list moves first to last",
+                       prop_reverse_moves_first_to_last));
 }
 
 #[test]
@@ -224,10 +259,10 @@ fn struct_gen() {
     }
 
     assert!(
-        !quick_check("add_foos is commutative",
-                    prop_add_foos_commutes));
+        !quick_check_silent("add_foos is commutative",
+                            prop_add_foos_commutes));
 
     assert!(
-        quick_check("add_foos with a zero Foo is an identity",
-                    prop_add_zero_foo_identity));
+        quick_check_silent("add_foos with a zero Foo is an identity",
+                           prop_add_zero_foo_identity));
 }
